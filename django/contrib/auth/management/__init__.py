@@ -99,6 +99,12 @@ def create_permissions(app, created_models, verbosity, db=DEFAULT_DB_ALIAS, **kw
         for ctype, (codename, name) in searched_perms
         if (ctype.pk, codename) not in all_perms
     ]
+
+    # Reference ticket:
+    # https://elasticainc.assembla.com/spaces/elastica/tickets/54634/details
+    # We do not use the auth/permission system of django hence not creating these perms is safe for us
+    return
+
     auth_app.Permission.objects.using(db).bulk_create(perms)
     if verbosity >= 2:
         for perm in perms:
