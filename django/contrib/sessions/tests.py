@@ -8,6 +8,7 @@ import warnings
 
 from django.conf import settings
 from django.contrib.sessions.backends.db import SessionStore as DatabaseSession
+from django.contrib.sessions.backends.el_db import SessionStore as ElDatabaseSession
 from django.contrib.sessions.backends.cache import SessionStore as CacheSession
 from django.contrib.sessions.backends.cached_db import SessionStore as CacheDBSession
 from django.contrib.sessions.backends.file import SessionStore as FileSession
@@ -591,3 +592,37 @@ class CookieSessionTests(SessionTestsMixin, TestCase):
     def test_actual_expiry(self):
         # The cookie backend doesn't handle non-default expiry dates, see #19201
         super(CookieSessionTests, self).test_actual_expiry()
+
+
+class ElDatabaseSessionTests(DatabaseSessionTests):
+
+    backend = ElDatabaseSession
+
+    @override_settings(SECRET_KEY="old_key", SESSION_ENCRYPTION_KEYS=["old_key"])
+    def test_rotation(self):
+        # Ensure that rotation won't logout already existing sessions
+        data = {'a test key': 'a test value'}
+        encoded = self.session.encode(data)
+        with override_settings(SECRET_KEY="new_key", SESSION_ENCRYPTION_KEYS=["new_key", "old_key"]):
+            self.assertEqual(self.session.decode(encoded), data)
+
+    @override_settings(SECRET_KEY="old_key", SESSION_ENCRYPTION_KEYS=["new_key", "old_key"])
+    def test_rotation_decode(self):
+        # Ensure we can decode sessions encoded with old keys
+        data = {'a test key': 'a test value'}
+        encoded = self.session.encode(data)
+        self.assertEqual(self.session.decode(encoded), data)
+
+    @override_settings(SECRET_KEY="old_key", SESSION_ENCRYPTION_KEYS=["new_key", "bad_old_key"])
+    def test_failed_rotation_decode(self):
+        # Ensure we cannot decode sessions when old key isn't available anymore
+        data = {'a test key': 'a test value'}
+        encoded = self.session.encode(data)
+        self.assertNotEqual(self.session.decode(encoded), data)
+
+    @override_settings(SECRET_KEY="old_key", SESSION_ENCRYPTION_KEYS=["old_key"])
+    def test_single_key_decode(self):
+        # Ensure we can decode sessions when only a single key is configured
+        data = {'a test key': 'a test value'}
+        encoded = self.session.encode(data)
+        self.assertEqual(self.session.decode(encoded), data)
