@@ -39,6 +39,7 @@ import base64
 import json
 import time
 import zlib
+from bson import json_util
 
 from django.conf import settings
 from django.utils import baseconv
@@ -85,10 +86,10 @@ class JSONSerializer(object):
     signing.loads.
     """
     def dumps(self, obj):
-        return json.dumps(obj, separators=(',', ':')).encode('latin-1')
+        return json.dumps(obj, separators=(',', ':'), default=json_util.default).encode('latin-1')
 
     def loads(self, data):
-        return json.loads(data.decode('latin-1'))
+        return json.loads(data.decode('latin-1'), object_hook=json_util.object_hook)
 
 
 def dumps(obj, key=None, salt='django.core.signing', serializer=JSONSerializer, compress=False):
